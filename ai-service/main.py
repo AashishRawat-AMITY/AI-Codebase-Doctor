@@ -173,14 +173,18 @@ async def index_codebase(request: IndexRequest):
             repository_id=repository_id,
         )
 
-        if isinstance(result, dict):
-            vector_store = result.get("vector_store")
-            stats = result.get("stats", {})
-        else:
-            vector_store = result
-            stats = {}
 
-        if vector_store is None:
+if isinstance(result, tuple):
+    vector_store, stats = result
+elif isinstance(result, dict):
+    vector_store = result.get("vector_store")
+    stats = result.get("stats", {})
+else:
+    vector_store = result
+    stats = {}
+
+
+    if vector_store is None:
             raise RuntimeError(
                 "Indexing completed without returning a vector store."
             )
