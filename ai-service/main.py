@@ -1,6 +1,10 @@
+
 import logging
+import shutil
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -22,6 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = BASE_DIR / "chroma_db"
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
+REPOSITORIES_DIR = Path("/tmp/repositories")
 repository_stores = {}
 
 
@@ -29,9 +34,8 @@ repository_stores = {}
 # REQUEST MODELS
 # --------------------------------------------------
 
-
 class IndexRequest(BaseModel):
-    repository_id: str
+    repository_id: str = Field(min_length=1, max_length=100)
     repository_url: str
 
 
@@ -62,7 +66,10 @@ async def lifespan(app: FastAPI):
 
             if vector_store is not None:
                 repository_stores[repository_id] = vector_store
-                logger.info("Loaded index for repository %s", repository_id)
+                logger.info(
+                    "Loaded index for repository %s",
+                    repository_id,
+                )
 
         except Exception:
             logger.exception(
@@ -97,7 +104,7 @@ app = FastAPI(
 
 
 # --------------------------------------------------
-# ROOT
+# ROOT AND HEALTH
 # --------------------------------------------------
 
 @app.get("/", tags=["System"], summary="Welcome")
@@ -108,10 +115,6 @@ async def root():
         "health": "/health",
     }
 
-
-# --------------------------------------------------
-# HEALTH CHECK
-# --------------------------------------------------
 
 @app.get("/health", tags=["System"], summary="Health Check")
 async def health():
@@ -126,12 +129,6 @@ async def health():
 # INDEX REPOSITORY
 # --------------------------------------------------
 
-
-import shutil
-import subprocess
-from pathlib import Path
-from fastapi import HTTPException
-
 @app.post(
     "/api/index",
     tags=["Repository"],
@@ -139,22 +136,47 @@ from fastapi import HTTPException
 )
 async def index_codebase(request: IndexRequest):
     repository_id = request.repository_id
-    repository_url = request.repository_url
+    repository_url = request.repository_url.strip()
 
-    # Clone the repository inside the AI service
-    repository_path = Path("/tmp/repositories") / repository_id
+    # Accept only public GitHub HTTPS repository URLs.
+    parsed_url = urlparse(repository_url)
 
-    if repository_path.exists():
-        shutil.rmtree(repository_path)
+    if (
+            parsed_url.scheme != "https"
+            or parsed_url.hostname != "github.com"
+            or not parsed_url.path.strip("/")
+            or parsed_url.query
+            or parsed_url.fragment
+            or parsed_url.username
+            or parsed_url.password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide a valid HTTPS GitHub repository URL.",
+        )
 
-    repository_path.parent.mkdir(parents=True, exist_ok=True)
+    repository_path = REPOSITORIES_DIR / repository_id
+    persist_directory = STORAGE_DIR / repository_id
+
+    # Avoid deleting an existing index or clone accidentally.
+    if repository_id in repository_stores or persist_directory.exists():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "An index already exists for this repository ID. "
+                "Use a new repository ID to index it again."
+            ),
+        )
 
     try:
+        REPOSITORIES_DIR.mkdir(parents=True, exist_ok=True)
+
         subprocess.run(
             [
                 "git",
                 "clone",
-                "--depth", "1",
+                "--depth",
+                "1",
                 repository_url,
                 str(repository_path),
             ],
@@ -164,32 +186,33 @@ async def index_codebase(request: IndexRequest):
             timeout=120,
         )
 
-        persist_directory = STORAGE_DIR / repository_id
-        persist_directory.mkdir(parents=True, exist_ok=True)
-
         result = index_repository(
             repository_path=str(repository_path),
             persist_directory=str(persist_directory),
             repository_id=repository_id,
         )
 
+        # index_repository returns (vector_store, stats).
+        if isinstance(result, tuple):
+            vector_store, stats = result
+        elif isinstance(result, dict):
+            vector_store = result.get("vector_store")
+            stats = result.get("stats", {})
+        else:
+            vector_store = result
+            stats = {}
 
-if isinstance(result, tuple):
-    vector_store, stats = result
-elif isinstance(result, dict):
-    vector_store = result.get("vector_store")
-    stats = result.get("stats", {})
-else:
-    vector_store = result
-    stats = {}
-
-
-    if vector_store is None:
+        if vector_store is None:
             raise RuntimeError(
                 "Indexing completed without returning a vector store."
             )
 
         repository_stores[repository_id] = vector_store
+
+        logger.info(
+            "Repository %s indexed successfully",
+            repository_id,
+        )
 
         return {
             "message": "Repository indexed successfully",
@@ -199,9 +222,13 @@ else:
 
     except subprocess.CalledProcessError as exc:
         logger.error("Git clone failed: %s", exc.stderr)
+
         raise HTTPException(
             status_code=400,
-            detail="Could not clone repository. Check that the URL is valid and public.",
+            detail=(
+                "Could not clone the repository. "
+                "Check that the URL is valid and the repository is public."
+            ),
         ) from exc
 
     except subprocess.TimeoutExpired as exc:
@@ -210,12 +237,21 @@ else:
             detail="Repository cloning timed out.",
         ) from exc
 
+    except HTTPException:
+        raise
+
     except Exception as exc:
         logger.exception("Repository indexing failed")
+
+        # Remove partial index data so a retry can work.
+        repository_stores.pop(repository_id, None)
+        shutil.rmtree(persist_directory, ignore_errors=True)
+
         raise HTTPException(
             status_code=500,
             detail="Repository indexing failed. Check AI service logs.",
         ) from exc
+
 
 # --------------------------------------------------
 # ASK QUESTIONS
@@ -228,7 +264,6 @@ else:
 )
 async def ask_codebase(request: AskRequest):
     repository_id = request.repository_id
-
     vector_store = repository_stores.get(repository_id)
 
     if vector_store is None:
