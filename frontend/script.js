@@ -1,5 +1,5 @@
 
-const API_URL = "http://localhost:8080";
+const API_URL = "https://ai-codebasedoctor.onrender.com";
 
 const repositoryForm = document.getElementById("repositoryForm");
 const repositoryMessage = document.getElementById("repositoryMessage");
