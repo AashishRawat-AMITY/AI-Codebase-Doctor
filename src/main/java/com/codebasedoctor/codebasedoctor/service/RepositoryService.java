@@ -60,10 +60,12 @@ public class RepositoryService {
             );
 
             // 4. Index the repository in the FastAPI RAG service
+
             aiService.indexRepository(
                     String.valueOf(savedRepository.getId()),
-                    repositoryDirectory.getAbsolutePath()
+                    savedRepository.getGithubUrl()
             );
+
 
             // 5. Mark READY only after indexing succeeds
             savedRepository.setStatus("READY");

@@ -29,9 +29,10 @@ repository_stores = {}
 # REQUEST MODELS
 # --------------------------------------------------
 
+
 class IndexRequest(BaseModel):
-    repository_id: str = Field(min_length=1, max_length=100)
-    repository_path: str = Field(min_length=1)
+    repository_id: str
+    repository_url: str
 
 
 class AskRequest(BaseModel):
@@ -125,6 +126,12 @@ async def health():
 # INDEX REPOSITORY
 # --------------------------------------------------
 
+
+import shutil
+import subprocess
+from pathlib import Path
+from fastapi import HTTPException
+
 @app.post(
     "/api/index",
     tags=["Repository"],
@@ -132,27 +139,34 @@ async def health():
 )
 async def index_codebase(request: IndexRequest):
     repository_id = request.repository_id
-    repository_path = Path(request.repository_path)
+    repository_url = request.repository_url
 
-    if not repository_path.is_dir():
-        raise HTTPException(
-            status_code=400,
-            detail="Repository directory does not exist.",
-        )
+    # Clone the repository inside the AI service
+    repository_path = Path("/tmp/repositories") / repository_id
 
-    persist_directory = STORAGE_DIR / repository_id
+    if repository_path.exists():
+        shutil.rmtree(repository_path)
 
-    # Prevent accidentally replacing an existing index.
-    if (
-            persist_directory.exists()
-            and any(persist_directory.iterdir())
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="An index already exists for this repository ID.",
-        )
+    repository_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth", "1",
+                repository_url,
+                str(repository_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        persist_directory = STORAGE_DIR / repository_id
+        persist_directory.mkdir(parents=True, exist_ok=True)
+
         result = index_repository(
             repository_path=str(repository_path),
             persist_directory=str(persist_directory),
@@ -179,17 +193,25 @@ async def index_codebase(request: IndexRequest):
             "stats": stats,
         }
 
-    except HTTPException:
-        raise
+    except subprocess.CalledProcessError as exc:
+        logger.error("Git clone failed: %s", exc.stderr)
+        raise HTTPException(
+            status_code=400,
+            detail="Could not clone repository. Check that the URL is valid and public.",
+        ) from exc
+
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(
+            status_code=408,
+            detail="Repository cloning timed out.",
+        ) from exc
 
     except Exception as exc:
         logger.exception("Repository indexing failed")
-
         raise HTTPException(
             status_code=500,
-            detail=f"Repository indexing failed: {exc}",
+            detail="Repository indexing failed. Check AI service logs.",
         ) from exc
-
 
 # --------------------------------------------------
 # ASK QUESTIONS

@@ -51,11 +51,12 @@ public class AIService {
 //        System.out.println("AI indexing response: " + response);
 //    }
 
-    public String indexRepository(String repositoryId, String repositoryPath) {
+
+    public String indexRepository(String repositoryId, String repositoryUrl) {
 
         Map<String, Object> request = new HashMap<>();
         request.put("repository_id", repositoryId);
-        request.put("repository_path", repositoryPath);
+        request.put("repository_url", repositoryUrl);
 
         return sendRequest("/api/index", request);
     }
