@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Codebase Doctor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <h1>AI Codebase Doctor </h1>
+    <p>Upload your GitHub repository and ask questions about your code.</p>
+
+    <h3>1. Connect Repository</h3>
+
+    <form id="repositoryForm">
+        <input type="text" id="repositoryName"
+               placeholder="Repository name" required>
+
+        <input type="url" id="githubUrl"
+               placeholder="GitHub repository URL" required>
+
+        <button type="submit">Connect Repository</button>
+    </form>
+
+    <p id="repositoryMessage"></p>
+
+    <hr>
+
+    <h3>2. Ask Your Code</h3>
+
+    <input type="number" id="repositoryId"
+           placeholder="Repository ID (shown after connecting)" min="1" required>
+
+    <textarea id="question"
+              placeholder="Example: Explain how this project works..."
+              rows="4"></textarea>
+
+    <button id="askButton" type="button">Ask AI</button>
+
+    <p id="askMessage"></p>
+
+    <div id="answerBox">
+        <h3>Answer</h3>
+        <p id="answer"></p>
+
+        <h3>Source Files</h3>
+        <div id="sources"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

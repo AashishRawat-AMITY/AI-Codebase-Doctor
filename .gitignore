@@ -1,0 +1,76 @@
+# Maven
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS / Eclipse ###
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Environment variables and secrets ###
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local configuration containing credentials
+application-local.properties
+application-secret.properties
+**/application-local.properties
+**/application-secret.properties
+
+# Private keys and credentials
+secrets/
+*.pem
+*.key
+
+### Python ###
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+ai-service/.venv/
+ai-service/venv/
+
+### Generated repository data and vector indexes ###
+repositories/
+chroma_db/
+**/chroma_db/
+**/chroma/
+vector_store/
+
+### Logs ###
+*.log
+
+### Operating system files ###
+.DS_Store
+Thumbs.db
