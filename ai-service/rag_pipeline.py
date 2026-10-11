@@ -156,26 +156,26 @@ def load_repository_files(repository_path):
         if not code.strip():
             continue
 
+
         documents.append(
             Document(
                 page_content=code,
                 metadata={
                     "file_name": file_path.name,
                     "file_path": relative_path.as_posix(),
-                    "language": (
-                        file_path.suffix.lower().lstrip(".")
-                    )
+                    "language": file_path.suffix.lower().lstrip(".")
                 }
             )
         )
 
-logger.info("Repository scan root: %s", root)
-logger.info("Supported source files loaded: %d", len(documents))
+    logger.info("Repository scan root: %s", root)
+    logger.info("Supported source files loaded: %d", len(documents))
 
-for document in documents:
-    logger.info("Loaded file: %s", document.metadata["file_path"])
+    for document in documents:
+        logger.info("Loaded file: %s", document.metadata["file_path"])
 
-return documents
+    return documents
+
 
 
 
