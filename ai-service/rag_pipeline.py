@@ -7,6 +7,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------
@@ -166,7 +169,15 @@ def load_repository_files(repository_path):
             )
         )
 
-    return documents
+logger.info("Repository scan root: %s", root)
+logger.info("Supported source files loaded: %d", len(documents))
+
+for document in documents:
+    logger.info("Loaded file: %s", document.metadata["file_path"])
+
+return documents
+
+
 
 
 # --------------------------------------------------
