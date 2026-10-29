@@ -106,7 +106,7 @@ askButton.addEventListener("click", async function () {
             );
         }
 
-        answer.textContent = answerText;
+        answer.innerHTML = DOMPurify.sanitize(marked.parse(answerText));
 
         // Display source files only when sources is an array.
         sources.replaceChildren();
