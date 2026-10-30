@@ -36,7 +36,7 @@ embeddings = OpenAIEmbeddings(
 )
 
 llm = ChatOpenAI(
-    model="gpt-6-luna",
+    model="gpt-4.1-mini",
     temperature=0
 )
 
