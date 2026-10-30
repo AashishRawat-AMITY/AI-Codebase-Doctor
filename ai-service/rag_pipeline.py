@@ -36,7 +36,7 @@ embeddings = OpenAIEmbeddings(
 )
 
 llm = ChatOpenAI(
-    model="gpt-4.1-mini",
+    model="gpt-6-luna",
     temperature=0
 )
 
@@ -282,7 +282,7 @@ def ask_repository(question, vector_store):
     # Retrieve the most relevant code chunks.
     retrieved_docs = vector_store.similarity_search(
         question,
-        k=4
+        k=10
     )
 
     if not retrieved_docs:
